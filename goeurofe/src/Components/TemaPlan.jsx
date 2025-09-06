@@ -2,24 +2,36 @@
 import React, { useState } from "react";
 import styled, { createGlobalStyle } from "styled-components";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import PhoneMockup from "../Frame/PhoneMockup";
-import { useTripFormActions } from "../store/TripFormContext";
+import {
+  useTripFormActions,
+  useTripFormState,
+  buildBackendPayload,
+  submitTrip, // TripFormContext 제공 유틸
+} from "../store/TripFormContext";
+
 /* 배경 (만지지 않음) */
 import BeachBg from "../assets/Image1.png";
 
-/* 상단 3개 아이콘 (단독/커플/친구) — 프로젝트 내 자산 경로에 맞게 교체해줘 */
-import IcSolo   from "../assets/icons/companion-1.png"; // 단독
-import IcCouple from "../assets/icons/companion-2.png"; // 커플
-import IcFriends from "../assets/icons/companion-3.png"; // 친구
+/* 상단 3개 아이콘 (단독/커플/친구) */
+import IcSolo from "../assets/icons/companion-1.png";
+import IcCouple from "../assets/icons/companion-2.png";
+import IcFriends from "../assets/icons/companion-3.png";
 
-/* 하단 2개 아이콘 (가족/반려동물) — 파일명에 맞게 교체 */
-import IcFamily from "../assets/icons/companion-family.png"; // 가족 (예: family.png)
-import IcPet    from "../assets/icons/companion-pet.png";    // 반려동물 (예: pet.png)
+/* 하단 2개 아이콘 (가족/반려동물) */
+import IcFamily from "../assets/icons/companion-family.png";
+import IcPet from "../assets/icons/companion-pet.png";
 
-/* 하단 네비 아이콘 (그대로) */
+/* 하단 네비 아이콘 */
 import IconHome from "../assets/icons/home.png";
 import IconCalendar from "../assets/icons/calendar.png";
 import IconProfile from "../assets/icons/profile.png";
+
+/* ✅ 백엔드 엔드포인트 (POST 전용) */
+const BASE = "https://two025-seasonthon-team-47-be.onrender.com";
+const POST_URL = `${BASE}/api/itineraries/generate-and-save?userId=1`;
+
 const PEOPLE_LABEL = {
   solo: "단독",
   couple: "커플",
@@ -29,28 +41,52 @@ const PEOPLE_LABEL = {
 };
 
 const GlobalStyle = createGlobalStyle`
-  /* Do Hyeon 로드 */
   @import url('https://fonts.googleapis.com/css2?family=Do+Hyeon&display=swap');
-
   * { box-sizing: border-box; }
   html, body, #root { height: 100%; margin: 0; }
 `;
 
 export default function HomeLanding() {
   const navigate = useNavigate();
-  // ⬇️ 추가: 전역 저장 훅 (최상위에서 호출)
+  const form = useTripFormState();
   const { setField } = useTripFormActions();
-  // 선택 상태 (단독/커플/친구/가족/반려동물)
-  const [sel, setSel] = useState(null); // 'solo' | 'couple' | 'friends' | 'family' | 'pet' | null
 
-  const handleNext = () => {
-    const value = PEOPLE_LABEL[sel];
+  const [sel, setSel] = useState(null); // 'solo' | 'couple' | 'friends' | 'family' | 'pet'
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
 
-    // ⬇️ 추가: TripFormContext에 저장
-    setField("people", value);
+  // ✅ 제출 버튼 클릭 시: TripFormContext 반영 → 백엔드 POST → resultpage 이동
+  const handleSubmit = async () => {
+    if (!sel || loading) return;
+    setErr("");
 
-    // ⬇️ OutputPage로 이동 (경로는 프로젝트에 맞게)
-    navigate("/resultpage");
+    // 1) 화면 선택값을 전역 상태에 반영
+    const peopleValue = PEOPLE_LABEL[sel];
+    setField("people", peopleValue);
+
+    // 2) 직후 POST용 스냅샷 구성 (setState 비동기 고려)
+    const nextForm = { ...form, people: peopleValue };
+    const payload = buildBackendPayload(nextForm);
+
+    // 3) POST 요청
+    setLoading(true);
+    try {
+      // TripFormContext에서 제공하는 submitTrip 사용 (axios 인스턴스 전달)
+      await submitTrip(axios, POST_URL, nextForm);
+      // 또는 아래 한 줄로도 가능:
+      // await axios.post(POST_URL, payload, { headers: { "Content-Type": "application/json" } });
+
+      // 4) 성공 시 결과 페이지로 이동 (resultpage 내부에서는 GET만 수행)
+      navigate("/resultpage");
+    } catch (e) {
+      setErr(
+        e?.response
+          ? `생성 실패 (HTTP ${e.response.status})`
+          : String(e?.message || e)
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -67,7 +103,7 @@ export default function HomeLanding() {
           notch
         >
           <Screen>
-            {/* 로고 (그대로) */}
+            {/* 로고 */}
             <LogoWrap>
               <Logo>
                 <span className="go">Go</span>
@@ -77,7 +113,7 @@ export default function HomeLanding() {
 
             {/* 히어로 (배경이미지 건드리지 않음) */}
             <Hero>
-              <HeroImg role="img" aria-label="베니스 운하 풍경" />
+              <HeroImg role="img" aria-label="배경 이미지" />
               <HeroText>
                 OO님!
                 <br />
@@ -85,49 +121,34 @@ export default function HomeLanding() {
               </HeroText>
             </Hero>
 
-            {/* 상단 3개: 단독 / 커플 / 친구 (기존 카드 규격) */}
+            {/* 상단 3개: 단독 / 커플 / 친구 */}
             <TopRow>
-              <IconCard
-                onClick={() => setSel("solo")}
-                aria-pressed={sel === "solo"}
-              >
+              <IconCard onClick={() => setSel("solo")} aria-pressed={sel === "solo"}>
                 <IconImg src={IcSolo} alt="단독" />
                 <IconLabel>단독</IconLabel>
               </IconCard>
 
-              <IconCard
-                onClick={() => setSel("couple")}
-                aria-pressed={sel === "couple"}
-              >
+              <IconCard onClick={() => setSel("couple")} aria-pressed={sel === "couple"}>
                 <IconImg src={IcCouple} alt="커플" />
                 <IconLabel>커플</IconLabel>
               </IconCard>
 
-              <IconCard
-                onClick={() => setSel("friends")}
-                aria-pressed={sel === "friends"}
-              >
+              <IconCard onClick={() => setSel("friends")} aria-pressed={sel === "friends"}>
                 <IconImg src={IcFriends} alt="친구" />
                 <IconLabel>친구</IconLabel>
               </IconCard>
             </TopRow>
 
-            {/* 하단 2개: 가족 / 반려동물 (새 규격 170×85) */}
+            {/* 하단 2개: 가족 / 반려동물 (170×85) */}
             <BottomRow>
-              <WideCard
-                onClick={() => setSel("family")}
-                aria-pressed={sel === "family"}
-              >
+              <WideCard onClick={() => setSel("family")} aria-pressed={sel === "family"}>
                 <WideInner>
                   <WideIcon src={IcFamily} alt="가족" />
                   <WideLabel>가족</WideLabel>
                 </WideInner>
               </WideCard>
 
-              <WideCard
-                onClick={() => setSel("pet")}
-                aria-pressed={sel === "pet"}
-              >
+              <WideCard onClick={() => setSel("pet")} aria-pressed={sel === "pet"}>
                 <WideInner>
                   <WideIcon src={IcPet} alt="반려동물" />
                   <WideLabel>반려동물</WideLabel>
@@ -135,12 +156,20 @@ export default function HomeLanding() {
               </WideCard>
             </BottomRow>
 
-            {/* 노란 버튼: 일정 생성하기 (폰트 동일: Do Hyeon 25px) */}
+            {/* 노란 버튼: 일정 생성하기 → POST */}
             <BtnWrap>
-              <PrimaryBtn onClick={handleNext}>일정 생성하기</PrimaryBtn>
+              <PrimaryBtn
+                onClick={handleSubmit}
+                disabled={!sel || loading}
+                aria-disabled={!sel || loading}
+                title={!sel ? "일행을 먼저 선택하세요" : "일정 생성하기"}
+              >
+                {loading ? "생성 중…" : "일정 생성하기"}
+              </PrimaryBtn>
+              {err && <ErrorText>{err}</ErrorText>}
             </BtnWrap>
 
-            {/* 하단 네비 (그대로) */}
+            {/* 하단 네비 */}
             <BottomNav role="navigation" aria-label="Main">
               <NavBtn className="active" aria-label="Home">
                 <NavIcon src={IconHome} alt="Home" />
@@ -181,10 +210,9 @@ const LogoWrap = styled.div`
   left: 16px;
   top: calc(env(safe-area-inset-top, 0px) + 60px);
   z-index: 3;
-  
 `;
 const Logo = styled.h1`
-   margin: 0;
+  margin: 0;
   font-family: "ADLaM Display";
   font-size: 35px;
   font-weight: 400;
@@ -193,10 +221,10 @@ const Logo = styled.h1`
 `;
 
 const Hero = styled.div`
-  margin-top: 130px; /* 로고 아래 간격 */
+  margin-top: 130px;
   position: relative;
   width: 100%;
-  height: 330px; /* 배경이미지 영역 (지시: 만지지 않음) */
+  height: 330px;
 `;
 const HeroImg = styled.div`
   position: absolute;
@@ -217,7 +245,7 @@ const HeroText = styled.p`
   text-align: left;
 `;
 
-/* 상단 3개 카드 (기존 규격: 110×140) */
+/* 상단 3개 카드 (110×140) */
 const TopRow = styled.div`
   width: 100%;
   max-width: 340px;
@@ -226,7 +254,7 @@ const TopRow = styled.div`
   grid-template-columns: repeat(3, 1fr);
   justify-items: center;
   gap: 8px;
-`; 
+`;
 const IconCard = styled.button`
   width: 110px;
   height: 140px;
@@ -258,7 +286,7 @@ const IconLabel = styled.span`
   line-height: normal;
 `;
 
-/* 하단 2개 박스 (새 규격: 170×85) */
+/* 하단 2개 박스 (170×85) */
 const BottomRow = styled.div`
   width: 100%;
   max-width: 350px; /* 170*2 = 340, 여유 10px */
@@ -319,17 +347,23 @@ const PrimaryBtn = styled.button`
   background: #FFE057;
   border: 0;
   cursor: pointer;
-
-  /* 요청: 버튼 텍스트도 동일 폰트/크기 */
   color: #0a0a0a;
   font-family: "Do Hyeon", sans-serif;
   font-size: 25px;
   font-style: normal;
   font-weight: 400;
   line-height: normal;
+
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+`;
+const ErrorText = styled.div`
+  margin-top: 8px;
+  color: #d00;
+  font-size: 13px;
+  text-align: center;
 `;
 
-/* 하단 네비 (폰 내부) */
+/* 하단 네비 */
 const BottomNav = styled.nav`
   position: absolute;
   left: 0; right: 0; bottom: 0;

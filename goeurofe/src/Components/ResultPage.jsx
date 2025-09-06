@@ -1,14 +1,13 @@
 // src/Components/ItineraryPost.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import PhoneMockup from "../Frame/PhoneMockup";
-import { useTripFormState, buildBackendPayload } from "../store/TripFormContext";
 
 import TopHeroImg from "../assets/venive_top.png";
 import IcBookmark from "../assets/icons/check.png";
 import IcShare from "../assets/icons/share.png";
-
 import IcEdit from "../assets/icons/edit_green.png";
 import IcDelete from "../assets/icons/trash_red.png";
 
@@ -16,96 +15,60 @@ import IconHome from "../assets/icons/home.png";
 import IconCalendar from "../assets/icons/calendar.png";
 import IconProfile from "../assets/icons/profile.png";
 
-/* ✅ 도메인 확인 필요: two025(오타) vs 2025 */
+/* ✅ 도메인(two025) + URL 그대로 사용 */
 const BASE = "https://two025-seasonthon-team-47-be.onrender.com";
-const POST_URL = `${BASE}/api/itineraries/generate-and-save?userId=1`;
 const GET_URL  = `${BASE}/api/users/itineraries/summaries/1`;
 
-// StrictMode에서 재마운트 직후 중복 실행을 막기 위한 임시 키 (1~2초 유지)
-const RUN_GUARD_KEY = "ItineraryPost__once";
-
 export default function ItineraryPost() {
-  const form = useTripFormState();
-  const payload = useMemo(() => buildBackendPayload(form), [form]);
+  const bootRef = useRef(false); // React 18 StrictMode 중복 GET 방지
+  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
   const [summaries, setSummaries] = useState([]); // [{title,startDate,endDate}]
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    // 🔒 1) 세션 가드: StrictMode 재마운트 시 두 번째 실행 차단
-    if (sessionStorage.getItem(RUN_GUARD_KEY) === "1") {
-      return; // 이미 같은 탭/세션에서 바로 직전에 실행됨 → 중복 방지
-    }
-    sessionStorage.setItem(RUN_GUARD_KEY, "1");
-    // 1~2초 후 자동 해제 → 라우팅으로 다시 들어오면 다시 실행 가능
-    const guardTimer = setTimeout(() => {
-      sessionStorage.removeItem(RUN_GUARD_KEY);
-    }, 2000);
+  const fetchSummaries = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await axios.get(GET_URL, {
+        withCredentials: false,
+        timeout: 30000,
+        validateStatus: () => true,
+      });
 
-    let mounted = true;
-
-    // 🛑 2) 언마운트 시 네트워크 즉시 취소(StrictMode 1차 마운트 요청 차단)
-    const controller = new AbortController();
-
-    const run = async () => {
-      setLoading(true);
-      setError("");
-
-      try {
-        // 1) 생성 + 저장 (POST)
-        const postRes = await axios.post(POST_URL, payload, {
-          headers: { "Content-Type": "application/json" },
-          withCredentials: false,
-          timeout: 60000,
-          validateStatus: () => true,
-          signal: controller.signal, // ← 언마운트 시 즉시 abort
-        });
-        if (postRes.status < 200 || postRes.status >= 300) {
-          console.warn("POST generate-and-save non-2xx:", postRes.status, postRes.data);
+      if (res.status >= 200 && res.status < 300) {
+        const arr = normalizeSummaries(res.data);
+        setSummaries(arr);
+        if (arr.length === 0) {
+          setError("목록이 비어 있습니다. (응답은 수신했지만 매핑 가능한 항목이 없음)");
         }
-
-        // 2) 요약 목록 조회 (GET)
-        const getRes = await axios.get(GET_URL, {
-          withCredentials: false,
-          timeout: 30000,
-          validateStatus: () => true,
-          signal: controller.signal, // ← 언마운트 시 즉시 abort
-        });
-
-        if (!mounted) return;
-
-        if (getRes.status >= 200 && getRes.status < 300) {
-          const arr = normalizeSummaries(getRes.data);
-          setSummaries(arr);
-          if (arr.length === 0) {
-            setError("목록이 비어 있습니다. (응답은 수신했지만 매핑 가능한 항목이 없음)");
-          }
-        } else {
-          setSummaries([]);
-          setError(`GET 실패 (HTTP ${getRes.status}) ${peek(getRes.data)}`);
-        }
-      } catch (e) {
-        if (mounted) setError(String(e));
-      } finally {
-        if (mounted) setLoading(false);
+      } else {
+        setSummaries([]);
+        setError(`GET 실패 (HTTP ${res.status}) ${peek(res.data)}`);
       }
-    };
+    } catch (e) {
+      setError(String(e?.message || e));
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    run();
-
-    return () => {
-      mounted = false;
-      controller.abort();     // ← 첫 마운트 요청 즉시 취소 (중복 방지)
-      clearTimeout(guardTimer);
-      // ❗여기서 RUN_GUARD_KEY를 제거하지 않음 (StrictMode 두 번째 마운트 차단을 위해)
-      // 위의 setTimeout으로 2초 뒤 자동 해제됨
-    };
-  }, [payload]);
+  useEffect(() => {
+    if (bootRef.current) return; // 개발모드 중복 방지
+    bootRef.current = true;
+    fetchSummaries(); // 진입 시 1회 GET
+  }, []);
 
   const list = summaries.length === 0
     ? [{ title: "", startDate: "", endDate: "", __placeholder: true }]
     : summaries;
+
+  // ✅ "생성된 버튼(열기)"을 누르면 resultpage1 로 이동
+  const goResultPage1 = () => {
+    // 필요 시 ID/쿼리 파라미터를 붙일 수 있음: navigate(`/resultpage1?itineraryId=${someId}`)
+    navigate("/resultpage1");
+  };
 
   return (
     <Stage>
@@ -119,6 +82,12 @@ export default function ItineraryPost() {
           </HeadingWrap>
 
           <ListArea>
+            <ReloadRow>
+              <ReloadBtn onClick={fetchSummaries} disabled={loading}>
+                {loading ? "불러오는 중…" : "다시 불러오기"}
+              </ReloadBtn>
+            </ReloadRow>
+
             {list.map((item, idx) => (
               <Card key={idx}>
                 <Bookmark src={IcBookmark} alt="bookmark" />
@@ -130,7 +99,13 @@ export default function ItineraryPost() {
                     {fmt(item?.startDate)}{item?.startDate ? " ~ " : ""}{fmt(item?.endDate)}
                   </CardDates>
                 </CardBody>
+
                 <CardActions aria-label="actions">
+                  {/* ✅ 생성된 버튼: resultpage1로 이동 */}
+                  <OpenBtn onClick={goResultPage1} disabled={!!item.__placeholder}>
+                    열기
+                  </OpenBtn>
+
                   <IconBtn title="공유"><SmallIcon src={IcShare} alt="share" /></IconBtn>
                   <IconBtn title="수정"><SmallIcon src={IcEdit} alt="edit" /></IconBtn>
                   <IconBtn title="삭제"><SmallIcon src={IcDelete} alt="delete" /></IconBtn>
@@ -155,14 +130,17 @@ export default function ItineraryPost() {
 /* ====== 유틸 ====== */
 function normalizeSummaries(raw) {
   if (Array.isArray(raw)) return raw.map(mapItem);
+
   const keys = ["data", "result", "results", "items", "itineraries", "content", "list"];
   for (const k of keys) {
     if (Array.isArray(raw?.[k])) return raw[k].map(mapItem);
   }
+
   if (raw && typeof raw === "object" && !Array.isArray(raw)) {
     const candidate = mapItem(raw);
     if (candidate.title || candidate.startDate || candidate.endDate) return [candidate];
   }
+
   return [];
 }
 
@@ -205,12 +183,11 @@ const Screen = styled.section`
   padding-bottom: 90px;
 `;
 const TopHero = styled.div`
-
   width: 412px;
   height: 123px;
   flex-shrink: 0;
   margin: 0 auto;
-  background: url(${TopHeroImg}) no-repeat;
+  background: url(${TopHeroImg}) lightgray -0.037px -190.274px / 100% 418.699% no-repeat;
 `;
 const HeadingWrap = styled.div` margin-top: 17px; padding: 0 16px; `;
 const Heading = styled.h2`
@@ -222,7 +199,18 @@ const Heading = styled.h2`
   text-align: center;
 `;
 const Divider = styled.div` margin: 8px auto 0; width: calc(100% - 32px); height: 1px; background: rgba(0,0,0,0.2); `;
-const ListArea = styled.div` margin-top: 51px; padding: 0 16px; `;
+const ListArea = styled.div` margin-top: 28px; padding: 0 16px; `;
+
+const ReloadRow = styled.div`
+  display: grid; place-items: center;
+  margin-bottom: 10px;
+`;
+const ReloadBtn = styled.button`
+  border: 1px solid #ddd; border-radius: 8px;
+  background: #fff; padding: 6px 10px; cursor: pointer;
+  font-size: 12px;
+`;
+
 const Card = styled.div`
   position: relative;
   width: 322px;
@@ -261,6 +249,20 @@ const CardDates = styled.div`
   }
   @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
 `;
+
+/* ✅ 생성된 버튼 스타일 */
+const OpenBtn = styled.button`
+  border: 1px solid #FFD54F;
+  background: #FFEB3B;
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-right: auto; /* 왼쪽으로 붙여 액션아이콘과 간격 확보 */
+  &:disabled { opacity: .6; cursor: not-allowed; }
+`;
+
 const CardActions = styled.div` display: flex; gap: 10px; justify-content: flex-end; align-items: center; `;
 const IconBtn = styled.button` border: 0; background: transparent; padding: 0; cursor: pointer; `;
 const SmallIcon = styled.img` width: 20px; height: 20px; display: block; `;

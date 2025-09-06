@@ -1,10 +1,10 @@
 // src/Components/WelcomeScreen.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import styled, { createGlobalStyle, keyframes } from "styled-components";
 import PhoneMockup from "../Frame/PhoneMockup";
 import BeachBg from "../assets/Image1.png";
 import KakaoLoginBtn from "../assets/kakaobtn.png";
-
+import { useNavigate } from "react-router-dom"; // ⬅️ 추가
 const GlobalStyle = createGlobalStyle`
   * { box-sizing: border-box; }
   html, body, #root { height: 100%; margin: 0; }
@@ -12,7 +12,9 @@ const GlobalStyle = createGlobalStyle`
 
 export default function WelcomeScreen() {
   const [showModal, setShowModal] = useState(false); // 2초 뒤 모달 on
-
+  const [devBtnH, setDevBtnH] = useState(56);       // 개발자 모드 버튼 높이(카카오 버튼과 동일)
+  const kakaoImgRef = useRef(null);
+const navigate = useNavigate();
   useEffect(() => {
     const t = setTimeout(() => setShowModal(true), 2000);
     return () => clearTimeout(t);
@@ -22,6 +24,18 @@ export default function WelcomeScreen() {
     // TODO: 실제 카카오 로그인 링크 연결
     // window.location.href = link;
     console.log("카카오 로그인!");
+  };
+
+  const handleDevMode = () => {
+    // TODO: 개발자 모드 라우팅/동작 연결
+    console.log("개발자 모드!");
+    alert("개발자 모드 진입 (더미)");
+  };
+
+  // 카카오 버튼 이미지 높이를 읽어 개발자 버튼에 동일 적용
+  const onKakaoImgLoad = () => {
+    const h = kakaoImgRef.current?.clientHeight || 56;
+    setDevBtnH(h);
   };
 
   return (
@@ -45,9 +59,21 @@ export default function WelcomeScreen() {
             {/* 2초 뒤에 어두워지고, 모달 노출 */}
             <Overlay $show={showModal} />
             <ModalWrap $show={showModal}>
-              <KakaoBtn onClick={handleKakaoLogin} aria-label="카카오 간편 로그인">
-                <img src={KakaoLoginBtn} alt="카카오 간편 로그인" />
-              </KakaoBtn>
+              <ButtonsStack>
+                <KakaoBtn onClick={handleKakaoLogin} aria-label="카카오 간편 로그인">
+                  <img
+                    ref={kakaoImgRef}
+                    src={KakaoLoginBtn}
+                    alt="카카오 간편 로그인"
+                    onLoad={onKakaoImgLoad}
+                  />
+                </KakaoBtn>
+
+                {/* ⬇️ 추가: 카카오 버튼과 동일 너비/높이 */}
+               <DevBtn type="button" aria-label="개발자 모드" style={{ height: devBtnH }} onClick={() => navigate("/main1")}>
+                개발자 모드
+               </DevBtn>
+              </ButtonsStack>
             </ModalWrap>
           </Screen>
         </PhoneMockup>
@@ -125,6 +151,13 @@ const ModalWrap = styled.div`
   animation: ${popIn} 220ms ease forwards;
 `;
 
+/* 세로 스택 */
+const ButtonsStack = styled.div`
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+`;
+
 /* 카카오 버튼 (이미지 사용) */
 const KakaoBtn = styled.button`
   background: none;
@@ -136,5 +169,26 @@ const KakaoBtn = styled.button`
     width: 280px;
     height: auto;
     display: block;
+  }
+`;
+
+/* ✅ 개발자 모드 버튼: 카카오 버튼과 동일 너비/높이 */
+const DevBtn = styled.button`
+  width: 280px;               /* 카카오와 동일 너비 */
+  /* 높이는 inline style로 동기화됨(style={{height: devBtnH}}) */
+  border: none;
+  border-radius: 12px;
+  background: #222;           /* 눈에 잘 띄게 진한 배경 */
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+
+  &:active {
+    transform: translateY(1px);
   }
 `;
