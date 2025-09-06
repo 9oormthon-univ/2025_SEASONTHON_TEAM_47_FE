@@ -3,20 +3,26 @@ import React, { useState } from "react";
 import styled, { createGlobalStyle } from "styled-components";
 import { useNavigate } from "react-router-dom";
 import PhoneMockup from "../Frame/PhoneMockup";
-
+import { useTripFormActions } from "../store/TripFormContext";
 /* 배경 */
 import BeachBg from "../assets/Image1.png";
 
 /* 카테고리 아이콘 */
-import IcRelax from "../assets/icons/purpose-1.png"; // 휴양
-import IcTour  from "../assets/icons/purpose-2.png"; // 관광
-import IcAct   from "../assets/icons/purpose-3.png"; // 액티비티
+import IcRelax from "../assets/icons/shop.png"; // 휴양
+import IcTour  from "../assets/icons/food.png"; // 관광
+import IcAct   from "../assets/icons/moun.png"; // 액티비티
 
 /* 하단 네비 아이콘 */
 import IconHome from "../assets/icons/home.png";
 import IconCalendar from "../assets/icons/calendar.png";
 import IconProfile from "../assets/icons/profile.png";
 
+const PURPOSE_LABEL = {
+  relax: "휴양",
+  tour: "관광",
+  act: "액티비티",
+  etc: "기타",
+};
 const GlobalStyle = createGlobalStyle`
   @import url('https://fonts.googleapis.com/css2?family=ADLaM+Display&family=Do+Hyeon&display=swap');
 
@@ -27,9 +33,11 @@ const GlobalStyle = createGlobalStyle`
 export default function HomeLanding() {
   const navigate = useNavigate();
   const [purpose, setPurpose] = useState(null);
-
+ const { setField } = useTripFormActions();
   const handleNext = () => {
-    navigate("/TemaPlan");
+     const value = PURPOSE_LABEL[purpose]; // "휴양" | "관광" | "액티비티" | "기타"
+    setField("purpose", value);            // 전역 저장
+    navigate("/main6", { state: { purpose: value } }); // 라우터 state 전달(원치 않으면
   };
 
   return (
@@ -69,7 +77,7 @@ export default function HomeLanding() {
                 aria-pressed={purpose === "relax"}
               >
                 <IconImage src={IcRelax} alt="휴양" />
-                <IconLabel>휴양</IconLabel>
+                <IconLabel>쇼핑</IconLabel>
               </IconCard>
 
               <IconCard
@@ -77,7 +85,7 @@ export default function HomeLanding() {
                 aria-pressed={purpose === "tour"}
               >
                 <IconImage src={IcTour} alt="관광" />
-                <IconLabel>관광</IconLabel>
+                <IconLabel>맛집</IconLabel>
               </IconCard>
 
               <IconCard
@@ -85,7 +93,7 @@ export default function HomeLanding() {
                 aria-pressed={purpose === "act"}
               >
                 <IconImage src={IcAct} alt="액티비티" />
-                <IconLabel>액티비티</IconLabel>
+                <IconLabel>자연경관</IconLabel>
               </IconCard>
             </IconRow>
 
@@ -161,7 +169,7 @@ const Hero = styled.div`
   margin-top: 130px;
   position: relative;
   width: 100%;
-  height: 350px;
+  height: 330px;
 `;
 const HeroImg = styled.div`
   position: absolute;

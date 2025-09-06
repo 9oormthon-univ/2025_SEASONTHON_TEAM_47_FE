@@ -10,7 +10,7 @@ import PlaneArrive from "../assets/Vector (14).png"; // 도착지 아이콘
 import IconHome from "../assets/icons/home.png";
 import IconCalendar from "../assets/icons/calendar.png";
 import IconProfile from "../assets/icons/profile.png";
-
+import { useTripFormActions } from "../store/TripFormContext";
 /* 데모용 도시 목록 */
 const CITY_SUGGESTIONS = [
   "부산", "부천", "부평", "부안", "부여",
@@ -27,9 +27,11 @@ export default function HomeLanding() {
   const navigate = useNavigate();
   const [dep, setDep] = useState("");
   const [arr, setArr] = useState("");
-
+ const { setMany } = useTripFormActions();
  const goNext = () => {
+  setMany({ departure: dep, arrival: arr });
     navigate("/main2", { state: { dep, arr } });
+    
   };
 
   return (
@@ -208,7 +210,7 @@ const Hero = styled.div`
 margin-top:130px;
   position: relative;
   width: 100%;
-  height: 350px;   /* 요청 높이 */
+  height: 330px;   /* 요청 높이 */
 `;
 const HeroImg = styled.div`
   position: absolute;

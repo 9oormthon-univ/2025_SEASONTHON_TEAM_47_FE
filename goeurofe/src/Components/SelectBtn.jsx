@@ -160,7 +160,7 @@ const Hero = styled.div`
   margin-top: 130px;
   position: relative;
   width: 100%;
-  height: 240px;
+  height: 330px;
 `;
 const HeroImg = styled.div`
   position: absolute;
@@ -235,6 +235,7 @@ const SearchBtn = styled.button`
   font-size: 16px;
   color: #0a0a0a;
   cursor: pointer;
+  margin-top:84px;
 `;
 
 /* 하단 네비 */

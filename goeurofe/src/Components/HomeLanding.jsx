@@ -5,9 +5,12 @@ import PhoneMockup from "../Frame/PhoneMockup";
 import { useNavigate } from "react-router-dom";
 import CalendarModal from "./ModalCalendar";
 
+/* 컨텍스트 액션 */
+import { useTripFormActions } from "../store/TripFormContext";
+
 /* 배경 & 아이콘 */
 import BeachBg from "../assets/Image1.png";
-import PlaneDepart from "../assets/Vector (13).png"; // 달력 아이콘 대신 임시
+import PlaneDepart from "../assets/Vector (13).png";
 import IconHome from "../assets/icons/home.png";
 import IconCalendar from "../assets/icons/calendar.png";
 import IconProfile from "../assets/icons/profile.png";
@@ -19,14 +22,47 @@ const GlobalStyle = createGlobalStyle`
 
 export default function HomeLanding() {
   const navigate = useNavigate();
+  const { setMany } = useTripFormActions(); // ✅ 여러 값 저장
 
-  // 여행일자 상태
   const [range, setRange] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
 
+  // 일수 계산
+  const calcDays = (from, to) => {
+    if (!from || !to) return 0;
+    const d0 = toYMD(from);
+    const d1 = toYMD(to);
+    const MS = 24 * 60 * 60 * 1000;
+    return Math.floor((d1 - d0) / MS) + 1;
+  };
+
+  function toYMD(d) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+
+  function fmt(d) {
+    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(
+      d.getDate()
+    ).padStart(2, "0")}`;
+  }
+
   const handleNext = () => {
     if (range?.from && range?.to) {
-      navigate("/main3"); // 원하는 경로로 수정
+      const days = calcDays(range.from, range.to);
+      const startDay = fmt(range.from);
+      const endDay = fmt(range.to);
+
+      // ✅ 전역 저장
+      setMany({
+        date: days,
+        startDay,
+        endDay,
+      });
+
+      // ✅ 라우터 state로도 전달
+      navigate("/main3", {
+        state: { date: days, startDay, endDay },
+      });
     } else {
       alert("여행일자를 선택해주세요!");
     }
@@ -46,7 +82,6 @@ export default function HomeLanding() {
           notch
         >
           <Screen>
-            {/* 로고 */}
             <LogoWrap>
               <Logo>
                 <span className="go">Go</span>
@@ -54,7 +89,6 @@ export default function HomeLanding() {
               </Logo>
             </LogoWrap>
 
-            {/* 히어로 */}
             <Hero>
               <HeroImg role="img" aria-label="베니스 운하 풍경" />
               <HeroText>
@@ -72,7 +106,7 @@ export default function HomeLanding() {
                   placeholder="날짜 선택"
                   value={
                     range?.from && range?.to
-                      ? `${fmt(range.from)} ~ ${fmt(range.to)}`
+                      ? `${fmt(range.from)} ~ ${fmt(range.to)} (${calcDays(range.from, range.to)}일)`
                       : ""
                   }
                 />
@@ -107,7 +141,7 @@ export default function HomeLanding() {
         range={range}
         nights={
           range?.from && range?.to
-            ? Math.round((range.to - range.from) / (1000 * 60 * 60 * 24))
+            ? Math.floor((toYMD(range.to) - toYMD(range.from)) / (1000 * 60 * 60 * 24))
             : 0
         }
         today={new Date()}
@@ -123,21 +157,14 @@ export default function HomeLanding() {
   );
 }
 
-/* ===== utils ===== */
-function fmt(d) {
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(
-    2,
-    "0"
-  )}.${String(d.getDate()).padStart(2, "0")}`;
-}
-
-/* ===== styled ===== */
+/* ===== styled 부분 동일 ===== */
 const Stage = styled.div`
   min-height: 100dvh;
   display: grid;
   place-items: center;
   background: #f5f5f7;
 `;
+// ... (아래 styled-components는 그대로 두시면 됩니다)
 
 const Screen = styled.section`
   position: relative;
@@ -167,7 +194,7 @@ const Hero = styled.div`
   margin-top: 130px;
   position: relative;
   width: 100%;
-  height: 350px;
+  height: 330px;
 `;
 const HeroImg = styled.div`
   position: absolute;
@@ -248,6 +275,7 @@ const SearchBtn = styled.button`
   font-size: 16px;
   color: #0a0a0a;
   cursor: pointer;
+  margin-top:0px;
 `;
 
 const BottomNav = styled.nav`

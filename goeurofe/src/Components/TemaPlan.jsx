@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import styled, { createGlobalStyle } from "styled-components";
 import { useNavigate } from "react-router-dom";
 import PhoneMockup from "../Frame/PhoneMockup";
-
+import { useTripFormActions } from "../store/TripFormContext";
 /* 배경 (만지지 않음) */
 import BeachBg from "../assets/Image1.png";
 
@@ -20,6 +20,13 @@ import IcPet    from "../assets/icons/companion-pet.png";    // 반려동물 (�
 import IconHome from "../assets/icons/home.png";
 import IconCalendar from "../assets/icons/calendar.png";
 import IconProfile from "../assets/icons/profile.png";
+const PEOPLE_LABEL = {
+  solo: "단독",
+  couple: "커플",
+  friends: "친구",
+  family: "가족",
+  pet: "반려동물",
+};
 
 const GlobalStyle = createGlobalStyle`
   /* Do Hyeon 로드 */
@@ -31,13 +38,19 @@ const GlobalStyle = createGlobalStyle`
 
 export default function HomeLanding() {
   const navigate = useNavigate();
-
+  // ⬇️ 추가: 전역 저장 훅 (최상위에서 호출)
+  const { setField } = useTripFormActions();
   // 선택 상태 (단독/커플/친구/가족/반려동물)
   const [sel, setSel] = useState(null); // 'solo' | 'couple' | 'friends' | 'family' | 'pet' | null
 
   const handleNext = () => {
-    // 필요하면 sel 검사 가능
-    navigate("/next"); // 이동 경로 필요시 변경
+    const value = PEOPLE_LABEL[sel];
+
+    // ⬇️ 추가: TripFormContext에 저장
+    setField("people", value);
+
+    // ⬇️ OutputPage로 이동 (경로는 프로젝트에 맞게)
+    navigate("/resultpage");
   };
 
   return (
@@ -164,27 +177,26 @@ const Screen = styled.section`
 `;
 
 const LogoWrap = styled.div`
- position: absolute;
- 
+  position: absolute;
   left: 16px;
-
   top: calc(env(safe-area-inset-top, 0px) + 60px);
   z-index: 3;
+  
 `;
 const Logo = styled.h1`
-  margin: 0;
-  font-family: "ADLaM Display", system-ui, -apple-system, Segoe UI, Roboto, 'Noto Sans KR', sans-serif;
-  font-size: 28px;
+   margin: 0;
+  font-family: "ADLaM Display";
+  font-size: 35px;
   font-weight: 400;
   .go { color: #000; }
   .euro { color: #FFE057; }
 `;
 
 const Hero = styled.div`
-  margin-top: 56px; /* 로고 아래 간격 */
+  margin-top: 130px; /* 로고 아래 간격 */
   position: relative;
   width: 100%;
-  height: 220px; /* 배경이미지 영역 (지시: 만지지 않음) */
+  height: 330px; /* 배경이미지 영역 (지시: 만지지 않음) */
 `;
 const HeroImg = styled.div`
   position: absolute;
@@ -214,7 +226,7 @@ const TopRow = styled.div`
   grid-template-columns: repeat(3, 1fr);
   justify-items: center;
   gap: 8px;
-`;
+`; 
 const IconCard = styled.button`
   width: 110px;
   height: 140px;
@@ -287,7 +299,7 @@ const WideIcon = styled.img`
 const WideLabel = styled.span`
   color: #000;
   font-family: "Do Hyeon", sans-serif;
-  font-size: 25px;
+  font-size: 22px;
   font-style: normal;
   font-weight: 400;
   line-height: normal;

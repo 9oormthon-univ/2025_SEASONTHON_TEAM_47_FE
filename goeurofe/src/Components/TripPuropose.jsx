@@ -4,6 +4,9 @@ import styled, { createGlobalStyle } from "styled-components";
 import { useNavigate } from "react-router-dom";
 import PhoneMockup from "../Frame/PhoneMockup";
 
+/* ✅ 전역 컨텍스트 액션 */
+import { useTripFormActions } from "../store/TripFormContext";
+
 /* 배경 */
 import BeachBg from "../assets/Image1.png";
 
@@ -19,16 +22,34 @@ import IconProfile from "../assets/icons/profile.png";
 
 const GlobalStyle = createGlobalStyle`
   @import url('https://fonts.googleapis.com/css2?family=ADLaM+Display&family=Do+Hyeon&display=swap');
-
   * { box-sizing: border-box; }
   html, body, #root { height: 100%; margin: 0; }
 `;
 
+/* ✅ 선택키 → 한국어 라벨 매핑 */
+const PURPOSE_LABEL = {
+  relax: "휴양",
+  tour: "관광",
+  act: "액티비티",
+  etc: "기타",
+};
+
 export default function HomeLanding() {
   const navigate = useNavigate();
+  const { setField } = useTripFormActions();   // 전역 저장: 단일 필드
   const [purpose, setPurpose] = useState(null);
 
   const handleNext = () => {
+    if (!purpose) {
+      alert("여행 목적을 선택해주세요!");
+      return;
+    }
+    // ✅ 전역 컨텍스트에 한국어 라벨로 저장 (예: { purpose: "휴양" })
+    setField("purpose", PURPOSE_LABEL[purpose]);
+
+    // 필요 시 라우터 state로도 넘기려면 아래 주석 해제
+    // navigate("/main5", { state: { purpose: PURPOSE_LABEL[purpose] } });
+
     navigate("/main5");
   };
 
@@ -48,10 +69,10 @@ export default function HomeLanding() {
           <Screen>
             {/* 로고 */}
             <LogoWrap>
-              <Logo>    
-                  <span className="go">Go</span>
+              <Logo>
+                <span className="go">Go</span>
                 <span className="euro">Euro</span>
-                </Logo>
+              </Logo>
             </LogoWrap>
 
             {/* 히어로 */}
@@ -146,10 +167,9 @@ const LogoWrap = styled.div`
   left: 16px;
   top: calc(env(safe-area-inset-top, 0px) + 60px);
   z-index: 3;
-  
 `;
 const Logo = styled.h1`
-   margin: 0;
+  margin: 0;
   font-family: "ADLaM Display";
   font-size: 35px;
   font-weight: 400;
@@ -161,7 +181,7 @@ const Hero = styled.div`
   margin-top: 130px;
   position: relative;
   width: 100%;
-  height: 350px;
+  height: 330px;
 `;
 const HeroImg = styled.div`
   position: absolute;
@@ -182,7 +202,6 @@ const HeroText = styled.p`
   text-shadow: 0 1px 2px rgba(0,0,0,0.35);
   text-align: left;
 `;
-
 
 /* 아이콘 카드 */
 const IconRow = styled.div`
@@ -205,7 +224,6 @@ const IconCard = styled.button`
   padding-top: 8px;
   gap: 6px;
   cursor: pointer;
-
   &[aria-pressed="true"] {
     border-color: #FFE057;
     box-shadow: 0 0 0 3px rgba(255,224,87,0.35) inset;
@@ -220,9 +238,7 @@ const IconLabel = styled.span`
   color: #000;
   font-family: "Do Hyeon", sans-serif;
   font-size: 25px;
-  font-style: normal;
   font-weight: 400;
-  line-height: normal;
 `;
 
 /* 기타 버튼 */
@@ -238,14 +254,10 @@ const EtcButton = styled.button`
   border: 4.19px solid #BFBFBF;
   background: #FFF;
   cursor: pointer;
-
   color: #000;
   font-family: "Do Hyeon", sans-serif;
   font-size: 25px;
-  font-style: normal;
   font-weight: 400;
-  line-height: normal;
-
   &[aria-pressed="true"] {
     border-color: #FFE057;
     box-shadow: 0 0 0 3px rgba(255,224,87,0.35) inset;
